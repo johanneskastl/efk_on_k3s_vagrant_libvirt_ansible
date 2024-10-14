@@ -44,6 +44,8 @@
           apiVersion: elasticsearch.k8s.elastic.co/v1
           kind: Elasticsearch
           metadata:
+            annotations:
+              eck.k8s.elastic.co/orchestration-hints: '{"no_transient_settings":true,"service_accounts":true}'
             name: vagrant-libvirt
             namespace: kube-logging
           spec:

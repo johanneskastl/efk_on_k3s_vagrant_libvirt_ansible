@@ -1,0 +1,82 @@
+---
+
+- name: 'Install elasticsearch'
+  hosts: 'k3s1'
+  gather_facts: true
+  become: false
+  module_defaults:
+    kubernetes.core.helm:
+      kubeconfig: './k3s-kubeconfig'
+    kubernetes.core.k8s:
+      kubeconfig: './k3s-kubeconfig'
+    kubernetes.core.k8s_info:
+      kubeconfig: './k3s-kubeconfig'
+
+  tasks:
+
+    - name: 'Create the kube-logging namespace'
+      delegate_to: 'localhost'
+      kubernetes.core.k8s:
+        name: 'kube-logging'
+        api_version: 'v1'
+        kind: 'Namespace'
+        state: 'present'
+
+    - name: 'Create the secret for the elastic user password'
+      delegate_to: 'localhost'
+      kubernetes.core.k8s:
+        state: 'present'
+        resource_definition: |
+          apiVersion: v1
+          kind: Secret
+          metadata:
+            name: vagrant-libvirt-es-elastic-user
+            namespace: kube-logging
+          type: Opaque
+          stringData:
+            elastic: 'totallynotsecurE1@'
+
+    - name: 'Install elasticsearch using the CRD'
+      delegate_to: 'localhost'
+      kubernetes.core.k8s:
+        state: 'present'
+        resource_definition: |
+          apiVersion: elasticsearch.k8s.elastic.co/v1
+          kind: Elasticsearch
+          metadata:
+            name: vagrant-libvirt
+            namespace: kube-logging
+          spec:
+            version: 8.15.2
+            VolumeClaimDeletePolicy: retain
+            nodeSets:
+            - name: default
+              count: 1
+              config:
+                node.store.allow_mmap: false
+
+    - name: 'Wait until all pods are running'
+      delegate_to: 'localhost'
+      kubernetes.core.k8s_info:
+        api_version: v1
+        kind: Pod
+        namespace: kube-logging
+      register: pod_list
+      until: |
+        pod_list | json_query("resources[*].status.phase") | unique | sort == ["Running"]
+        or
+        pod_list | json_query("resources[*].status.phase") | unique | sort == ["Running", "Succeeded"]
+      retries: 36
+      delay: 10
+
+    - name: 'Wait until all pods are ready'
+      delegate_to: 'localhost'
+      kubernetes.core.k8s_info:
+        api_version: v1
+        kind: Pod
+        namespace: kube-logging
+      register: pod_list_ready
+      until: |
+        pod_list_ready | json_query("resources[*].status.containerStatuses[*].ready") | unique | sort == [[true]]
+      retries: 36
+      delay: 10

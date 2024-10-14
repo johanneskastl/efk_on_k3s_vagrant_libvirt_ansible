@@ -9,6 +9,9 @@ operator](https://www.elastic.co/guide/en/cloud-on-k8s/current/k8s-deploy-eck.ht
 It also installs an instance of Nginx and a MinIO instance, just to have some
 workload in the cluster.
 
+There is a second branch called `fluentbit` that uses [Fluent
+Bit](https://fluentbit.io/) instead of Fluentd for collecting the logs.
+
 Default OS is openSUSE Leap 15.6, but that can be changed in the Vagrantfile.
 Please be aware, that this might break the Ansible provisioning.
 

@@ -1,0 +1,109 @@
+---
+
+- name: 'Install Kibana'
+  hosts: 'k3s1'
+  gather_facts: true
+  become: false
+  module_defaults:
+    kubernetes.core.helm:
+      kubeconfig: './k3s-kubeconfig'
+    kubernetes.core.k8s:
+      kubeconfig: './k3s-kubeconfig'
+    kubernetes.core.k8s_info:
+      kubeconfig: './k3s-kubeconfig'
+
+  tasks:
+
+    - name: 'Install Kibana using the CRD'
+      delegate_to: 'localhost'
+      kubernetes.core.k8s:
+        state: 'present'
+        resource_definition: |
+          apiVersion: kibana.k8s.elastic.co/v1
+          kind: Kibana
+          metadata:
+            name: vagrant-libvirt
+            namespace: kube-logging
+          spec:
+            version: 8.15.2
+            count: 1
+            config:
+              server:
+                publicBaseUrl: "http://kibana.{{ hostvars['k3s1']['ansible_default_ipv4']['address'] }}.sslip.io"
+            elasticsearchRef:
+              name: vagrant-libvirt
+            http:
+              tls:
+                selfSignedCertificate:
+                  disabled: true
+
+    - name: 'Wait until all pods are running'
+      delegate_to: 'localhost'
+      kubernetes.core.k8s_info:
+        api_version: v1
+        kind: Pod
+        namespace: kube-logging
+      register: pod_list
+      until: |
+        pod_list | json_query("resources[*].status.phase") | unique | sort == ["Running"]
+        or
+        pod_list | json_query("resources[*].status.phase") | unique | sort == ["Running", "Succeeded"]
+      retries: 36
+      delay: 10
+
+    - name: 'Wait until all pods are ready'
+      delegate_to: 'localhost'
+      kubernetes.core.k8s_info:
+        api_version: v1
+        kind: Pod
+        namespace: kube-logging
+      register: pod_list_ready
+      until: |
+        pod_list_ready | json_query("resources[*].status.containerStatuses[*].ready") | unique | sort == [[true]]
+      retries: 36
+      delay: 10
+
+    - name: 'Install an Ingress for Kibana'
+      delegate_to: 'localhost'
+      kubernetes.core.k8s:
+        state: 'present'
+        resource_definition: |
+          apiVersion: networking.k8s.io/v1
+          kind: Ingress
+          metadata:
+            name: kibana-http
+            namespace: kube-logging
+          spec:
+            ingressClassName: traefik
+            rules:
+            - http:
+                paths:
+                  - host: "kibana.{{ hostvars['k3s1']['ansible_default_ipv4']['address'] }}.sslip.io"
+                    path: /
+                    pathType: Prefix
+                    backend:
+                      service:
+                        name: vagrant-libvirt-kb-http
+                        port:
+                          number: 5601
+
+    - name: 'Wait for the Kibana URL to be reachable'
+      ansible.builtin.uri:
+        url: "http://kibana.{{ hostvars['k3s1']['ansible_default_ipv4']['address'] }}.sslip.io"
+      register: result
+      until: |
+        result.status == 302
+        or
+        result.status == 200
+      retries: 11
+      delay: 10
+
+    - name: 'Kibana URL'
+      ansible.builtin.debug:
+        msg: "Connect to the following URL in your browser: http://kibana.{{ hostvars['k3s1']['ansible_default_ipv4']['address'] }}.sslip.io"
+      delegate_to: 'localhost'
+
+    - name: 'Output the inital elasticsearch admin password'
+      delegate_to: 'localhost'
+      ansible.builtin.debug:
+        msg: "The initial Elasticsearch password for the 'elastic' user is: 'totallynotsecurE1@'"

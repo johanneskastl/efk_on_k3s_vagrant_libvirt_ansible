@@ -23,3 +23,6 @@
 
 - name: 'Run playbook-fluentd_installation.yml'
   ansible.builtin.import_playbook: playbook-fluentd_installation.yml
+
+- name: 'Run playbook-kibana_installation.yml'
+  ansible.builtin.import_playbook: playbook-kibana_installation.yml

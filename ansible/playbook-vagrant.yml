@@ -20,3 +20,6 @@
 
 - name: 'Run playbook-elasticsearch_installation.yml'
   ansible.builtin.import_playbook: playbook-elasticsearch_installation.yml
+
+- name: 'Run playbook-fluentd_installation.yml'
+  ansible.builtin.import_playbook: playbook-fluentd_installation.yml

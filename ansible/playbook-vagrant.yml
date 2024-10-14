@@ -14,3 +14,6 @@
 
 - name: 'Run playbook-minio_tenant.yml'
   ansible.builtin.import_playbook: playbook-minio_tenant.yml
+
+- name: 'Run playbook-eck_operator_installation.yml'
+  ansible.builtin.import_playbook: playbook-eck_operator_installation.yml

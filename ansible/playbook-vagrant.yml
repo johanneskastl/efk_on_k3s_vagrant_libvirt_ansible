@@ -17,3 +17,6 @@
 
 - name: 'Run playbook-eck_operator_installation.yml'
   ansible.builtin.import_playbook: playbook-eck_operator_installation.yml
+
+- name: 'Run playbook-elasticsearch_installation.yml'
+  ansible.builtin.import_playbook: playbook-elasticsearch_installation.yml
